@@ -18,17 +18,19 @@ interface AppState {
   isMuted: boolean;
   isCameraOff: boolean;
   onlineCount: number;
+  mode: 'text' | 'video';
   
   setSearching: (searching: boolean) => void;
   setConnected: (connected: boolean) => void;
   setLocalStream: (stream: MediaStream | null) => void;
   setRemoteStream: (stream: MediaStream | null) => void;
   addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void;
-  setMatch: (roomId: string | null, partnerId: string | null) => void;
+  setMatch: (roomId: string | null, partnerId: string | null, mode?: 'text' | 'video') => void;
   toggleMute: () => void;
   toggleCamera: () => void;
   resetChat: () => void;
   setOnlineCount: (count: number) => void;
+  setMode: (mode: 'text' | 'video') => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -42,6 +44,7 @@ export const useAppStore = create<AppState>((set) => ({
   isMuted: false,
   isCameraOff: false,
   onlineCount: 0,
+  mode: 'video',
 
   setSearching: (isSearching) => set({ isSearching }),
   setConnected: (isConnected) => set({ isConnected }),
@@ -50,7 +53,11 @@ export const useAppStore = create<AppState>((set) => ({
   addMessage: (msg) => set((state) => ({
     messages: [...state.messages, { ...msg, id: Math.random().toString(36).substr(2, 9), timestamp: Date.now() }]
   })),
-  setMatch: (roomId, partnerId) => set({ roomId, partnerId }),
+  setMatch: (roomId, partnerId, mode) => set((state) => ({ 
+    roomId, 
+    partnerId, 
+    mode: mode || state.mode 
+  })),
   toggleMute: () => set((state) => {
     if (state.localStream) {
       state.localStream.getAudioTracks().forEach(track => track.enabled = !track.enabled);
@@ -65,4 +72,5 @@ export const useAppStore = create<AppState>((set) => ({
   }),
   resetChat: () => set({ messages: [] }),
   setOnlineCount: (onlineCount) => set({ onlineCount }),
+  setMode: (mode) => set({ mode }),
 }));

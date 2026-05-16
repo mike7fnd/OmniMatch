@@ -24,6 +24,7 @@ export const useWebRTC = () => {
     localStream,
     roomId,
     resetChat,
+    mode,
   } = useAppStore();
 
   const roomIdRef = useRef<string | null>(null);
@@ -77,42 +78,49 @@ export const useWebRTC = () => {
     return pc;
   }, [setRemoteStream, setConnected, setSearching]);
 
-  const startSearching = useCallback(async () => {
-    let stream = localStreamRef.current;
-    if (!stream) {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            width: { ideal: 1280 }, 
-            height: { ideal: 720 },
-            facingMode: "user"
-          }, 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true
-          }
-        });
-        setLocalStream(stream);
-        localStreamRef.current = stream; // Update ref immediately
-      } catch (err) {
-        console.error('Error accessing media devices:', err);
-        alert('Please allow camera and microphone access to use this app.');
-        return;
+  const startSearching = useCallback(async (searchMode: 'text' | 'video' = 'video') => {
+    cleanup();
+    resetChat();
+    setSearching(true);
+    
+    if (searchMode === 'video') {
+      let stream = localStreamRef.current;
+      if (!stream) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              width: { ideal: 1280 }, 
+              height: { ideal: 720 },
+              facingMode: "user"
+            }, 
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true
+            }
+          });
+          setLocalStream(stream);
+          localStreamRef.current = stream;
+        } catch (err) {
+          console.error('Error accessing media devices:', err);
+          // Fallback to text if video fails
+          searchMode = 'text';
+        }
       }
+    } else {
+      // If switching to text from video, we can keep the stream but not use it
     }
 
-    cleanup();
-    setSearching(true);
-    socketRef.current?.emit('join-queue');
-  }, [setLocalStream, setSearching, cleanup]);
+    socketRef.current?.emit('join-queue', { mode: searchMode });
+  }, [setLocalStream, setSearching, cleanup, resetChat]);
 
   const skip = useCallback(() => {
     if (roomIdRef.current) {
       socketRef.current?.emit('skip', { roomId: roomIdRef.current });
     }
+    const currentMode = useAppStore.getState().mode;
     cleanup();
     resetChat();
-    startSearching();
+    startSearching(currentMode);
   }, [cleanup, resetChat, startSearching]);
 
   const sendMessage = useCallback((text: string) => {
@@ -123,18 +131,28 @@ export const useWebRTC = () => {
   }, [addMessage]);
 
   useEffect(() => {
-    const socket = io();
+    // Explicitly set transports for deployment reliability
+    const socket = io({
+      transports: ['websocket', 'polling']
+    });
     socketRef.current = socket;
 
-    socket.on('match-found', async ({ roomId: newRoomId, initiator }) => {
-      console.log('Match found! Room:', newRoomId, 'Initiator:', initiator);
-      setMatch(newRoomId, null);
-      const pc = createPeerConnection(newRoomId);
+    socket.on('match-found', async ({ roomId: newRoomId, initiator, mode: matchedMode }) => {
+      console.log('Match found! Room:', newRoomId, 'Initiator:', initiator, 'Mode:', matchedMode);
+      setMatch(newRoomId, null, matchedMode);
+      
+      if (matchedMode === 'video') {
+        const pc = createPeerConnection(newRoomId);
 
-      if (initiator) {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        socket.emit('signal', { roomId: newRoomId, signal: offer });
+        if (initiator) {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          socket.emit('signal', { roomId: newRoomId, signal: offer });
+        }
+      } else {
+        // Text mode
+        setConnected(true);
+        setSearching(false);
       }
     });
 

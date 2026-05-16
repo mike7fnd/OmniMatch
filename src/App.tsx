@@ -37,48 +37,68 @@ export default function App() {
 
         <div className="bg-[#f7f7f7] border border-[#ddd] p-8 rounded-lg shadow-sm flex flex-col items-center max-w-md w-full">
           <h2 className="text-2xl font-bold mb-6 text-zinc-800">Ready to chat?</h2>
-          <button
-            onClick={startSearching}
-            className="w-full py-4 bg-omegle-blue text-white font-bold text-xl rounded shadow-[0_2px_0_0_#003566] hover:bg-[#005cb3] active:translate-y-px active:shadow-none transition-all"
-          >
-            Video
-          </button>
-          <p className="mt-6 text-sm text-zinc-500 text-center leading-relaxed">
-            By using OmniMatch, you agree to the terms. Please be respectful. 
-            You must be 18+ or 13+ with parental consent.
+          <div className="flex gap-4 w-full">
+            <button
+              onClick={() => {
+                useAppStore.getState().setMode('text');
+                startSearching('text');
+              }}
+              className="flex-1 py-4 bg-zinc-200 text-zinc-700 font-bold text-xl rounded shadow-[0_2px_0_0_#ccc] hover:bg-zinc-300 active:translate-y-px active:shadow-none transition-all"
+            >
+              Text
+            </button>
+            <button
+              onClick={() => {
+                useAppStore.getState().setMode('video');
+                startSearching('video');
+              }}
+              className="flex-1 py-4 bg-omegle-blue text-white font-bold text-xl rounded shadow-[0_2px_0_0_#003566] hover:bg-[#005cb3] active:translate-y-px active:shadow-none transition-all"
+            >
+              Video
+            </button>
+          </div>
+          <p className="mt-8 text-[11px] text-zinc-500 text-center leading-relaxed font-medium">
+            You must be 18+ or 13+ with parental consent. By continuing, you agree to our Terms and Community Guidelines. 
+            Keep it respectful and fun!
           </p>
         </div>
         
-        <div className="mt-12 text-zinc-400 text-xs font-bold uppercase tracking-widest">
-          Classic Experience • Simplified
+        <div className="mt-12 flex flex-col items-center gap-2">
+          <div className="text-zinc-600 font-bold flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            {onlineCount.toLocaleString()} people online now
+          </div>
+          <div className="text-zinc-400 text-[10px] font-bold uppercase tracking-[0.2em]">
+            Classic Experience • Secure Matching
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-full flex flex-col bg-white">
+    <div className="h-screen w-full flex flex-col bg-white overflow-hidden">
       {/* Header */}
-      <header className="h-[75px] border-b border-[#ddd] flex items-center justify-between px-6 shrink-0">
-        <div className="flex items-center gap-1 cursor-pointer" onClick={() => window.location.reload()}>
-          <span className="text-4xl font-black italic tracking-tighter text-omegle-blue">omne</span>
-          <span className="text-4xl font-black italic tracking-tighter text-omegle-orange">match</span>
+      <header className="h-[60px] md:h-[75px] border-b border-[#ddd] flex items-center justify-between px-4 md:px-6 shrink-0 bg-white z-10">
+        <div className="flex items-center gap-0.5 md:gap-1 cursor-pointer" onClick={() => window.location.reload()}>
+          <span className="text-2xl md:text-4xl font-black italic tracking-tighter text-omegle-blue">omne</span>
+          <span className="text-2xl md:text-4xl font-black italic tracking-tighter text-omegle-orange">match</span>
         </div>
         
-        <h2 className="absolute left-1/2 -translate-x-1/2 text-2xl font-bold text-zinc-900 hidden md:block">
+        <h2 className="hidden lg:block absolute left-1/2 -translate-x-1/2 text-2xl font-bold text-zinc-900 pointer-events-none">
           Talk to strangers!
         </h2>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
           <div className="flex flex-col items-end">
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Online</span>
-            <span className="text-lg font-bold text-omegle-blue leading-none">{onlineCount}</span>
+            <span className="text-[8px] md:text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Online</span>
+            <span className="text-sm md:text-lg font-bold text-omegle-blue leading-none">{onlineCount}</span>
           </div>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex overflow-hidden">
+      <main className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         <VideoGrid />
         <Chat onSendMessage={sendMessage} onSkip={skip} />
       </main>

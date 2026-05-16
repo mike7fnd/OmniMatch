@@ -16,8 +16,9 @@ async function startServer() {
 
   const PORT = 3000;
 
-  // Matchmaking queue
-  let waitingUsers: string[] = [];
+  // Matchmaking queues
+  let waitingVideoUsers: string[] = [];
+  let waitingTextUsers: string[] = [];
 
   const broadcastOnlineCount = () => {
     io.emit("online-count", io.engine.clientsCount);
@@ -27,35 +28,46 @@ async function startServer() {
     console.log("User connected:", socket.id);
     broadcastOnlineCount();
 
-    socket.on("join-queue", () => {
-      console.log("User joined queue:", socket.id);
+    socket.on("join-queue", ({ mode } = { mode: 'video' }) => {
+      console.log(`User ${socket.id} joined ${mode} queue`);
       
-      // Remove from any existing queue/room etc
-      waitingUsers = waitingUsers.filter(id => id !== socket.id);
+      // Clear from both queues first
+      waitingVideoUsers = waitingVideoUsers.filter(id => id !== socket.id);
+      waitingTextUsers = waitingTextUsers.filter(id => id !== socket.id);
 
-      if (waitingUsers.length > 0) {
+      const queue = mode === 'text' ? waitingTextUsers : waitingVideoUsers;
+
+      if (queue.length > 0) {
         // Match found!
-        const partnerId = waitingUsers.shift()!;
+        const partnerId = queue.shift()!;
         const roomId = `room-${socket.id}-${partnerId}`;
 
         // Join room
         socket.join(roomId);
-        io.to(partnerId).socketsJoin(roomId);
+        const partnerSocket = io.sockets.sockets.get(partnerId);
+        if (partnerSocket) {
+          partnerSocket.join(roomId);
 
-        // Notify both parties
-        // We designate one as the 'initiator' (caller) and one as the 'receiver' (callee)
-        io.to(partnerId).emit("match-found", { roomId, partnerId: socket.id, initiator: true });
-        socket.emit("match-found", { roomId, partnerId, initiator: false });
+          // Notify both parties
+          io.to(partnerId).emit("match-found", { roomId, partnerId: socket.id, initiator: true, mode });
+          socket.emit("match-found", { roomId, partnerId, initiator: false, mode });
 
-        console.log(`Matched ${socket.id} with ${partnerId} in room ${roomId}`);
+          console.log(`Matched ${socket.id} with ${partnerId} in ${mode} room ${roomId}`);
+        } else {
+          // Partner left while waiting
+          queue.push(socket.id);
+          socket.emit("waiting");
+        }
       } else {
-        waitingUsers.push(socket.id);
+        if (mode === 'text') waitingTextUsers.push(socket.id);
+        else waitingVideoUsers.push(socket.id);
         socket.emit("waiting");
       }
     });
 
     socket.on("leave-queue", () => {
-      waitingUsers = waitingUsers.filter(id => id !== socket.id);
+      waitingVideoUsers = waitingVideoUsers.filter(id => id !== socket.id);
+      waitingTextUsers = waitingTextUsers.filter(id => id !== socket.id);
     });
 
     socket.on("signal", ({ roomId, signal }) => {
@@ -69,7 +81,8 @@ async function startServer() {
 
     socket.on("disconnecting", () => {
       console.log("User disconnecting:", socket.id);
-      waitingUsers = waitingUsers.filter(id => id !== socket.id);
+      waitingVideoUsers = waitingVideoUsers.filter(id => id !== socket.id);
+      waitingTextUsers = waitingTextUsers.filter(id => id !== socket.id);
       
       const rooms = Array.from(socket.rooms);
       rooms.forEach(room => {
