@@ -11,7 +11,10 @@ async function startServer() {
     cors: {
       origin: "*",
       methods: ["GET", "POST"]
-    }
+    },
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ["polling", "websocket"]
   });
 
   const PORT = 3000;
@@ -21,11 +24,19 @@ async function startServer() {
   let waitingTextUsers: string[] = [];
 
   const broadcastOnlineCount = () => {
-    io.emit("online-count", io.engine.clientsCount);
+    const count = io.engine.clientsCount;
+    io.emit("online-count", count);
+    console.log(`Broadcasting online count: ${count}`);
   };
+
+  // Periodic broadcast to ensure all clients are synced
+  setInterval(broadcastOnlineCount, 15000);
 
   io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
+    
+    // Send initial count immediately
+    socket.emit("online-count", io.engine.clientsCount);
     broadcastOnlineCount();
 
     socket.on("join-queue", ({ mode } = { mode: 'video' }) => {
@@ -55,7 +66,9 @@ async function startServer() {
           console.log(`Matched ${socket.id} with ${partnerId} in ${mode} room ${roomId}`);
         } else {
           // Partner left while waiting
-          queue.push(socket.id);
+          console.log(`Partner ${partnerId} disappeared, putting ${socket.id} back in queue`);
+          if (mode === 'text') waitingTextUsers.push(socket.id);
+          else waitingVideoUsers.push(socket.id);
           socket.emit("waiting");
         }
       } else {

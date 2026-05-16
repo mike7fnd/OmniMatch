@@ -11,7 +11,7 @@ import { useAppStore } from './store/useAppStore';
 
 export default function App() {
   const { startSearching, skip, sendMessage } = useWebRTC();
-  const { isSearching, isConnected, onlineCount } = useAppStore();
+  const { isSearching, isConnected, onlineCount, socketConnected, mode } = useAppStore();
 
   useEffect(() => {
     // Add Esc key listener for skipping
@@ -89,10 +89,11 @@ export default function App() {
           Talk to strangers!
         </h2>
 
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-2 md:gap-4 shrink-0">
+          <div className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`} title={socketConnected ? 'Connected' : 'Connecting...'} />
           <div className="flex flex-col items-end">
             <span className="text-[8px] md:text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Online</span>
-            <span className="text-sm md:text-lg font-bold text-omegle-blue leading-none">{onlineCount}</span>
+            <span className="text-sm md:text-lg font-bold text-omegle-blue leading-none">{onlineCount.toLocaleString()}</span>
           </div>
         </div>
       </header>

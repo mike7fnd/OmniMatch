@@ -21,6 +21,7 @@ export const useWebRTC = () => {
     setMatch,
     addMessage,
     setOnlineCount,
+    setSocketConnected,
     localStream,
     roomId,
     resetChat,
@@ -110,7 +111,12 @@ export const useWebRTC = () => {
       // If switching to text from video, we can keep the stream but not use it
     }
 
-    socketRef.current?.emit('join-queue', { mode: searchMode });
+    if (socketRef.current) {
+      if (!socketRef.current.connected) {
+        socketRef.current.connect();
+      }
+      socketRef.current.emit('join-queue', { mode: searchMode });
+    }
   }, [setLocalStream, setSearching, cleanup, resetChat]);
 
   const skip = useCallback(() => {
@@ -131,11 +137,27 @@ export const useWebRTC = () => {
   }, [addMessage]);
 
   useEffect(() => {
-    // Explicitly set transports for deployment reliability
     const socket = io({
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
     });
     socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('Socket connected:', socket.id);
+      setSocketConnected(true);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Socket disconnected');
+      setSocketConnected(false);
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      setSocketConnected(false);
+    });
 
     socket.on('match-found', async ({ roomId: newRoomId, initiator, mode: matchedMode }) => {
       console.log('Match found! Room:', newRoomId, 'Initiator:', initiator, 'Mode:', matchedMode);

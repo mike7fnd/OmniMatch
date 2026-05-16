@@ -19,6 +19,7 @@ interface AppState {
   isCameraOff: boolean;
   onlineCount: number;
   mode: 'text' | 'video';
+  socketConnected: boolean;
   
   setSearching: (searching: boolean) => void;
   setConnected: (connected: boolean) => void;
@@ -31,6 +32,7 @@ interface AppState {
   resetChat: () => void;
   setOnlineCount: (count: number) => void;
   setMode: (mode: 'text' | 'video') => void;
+  setSocketConnected: (connected: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -44,7 +46,8 @@ export const useAppStore = create<AppState>((set) => ({
   isMuted: false,
   isCameraOff: false,
   onlineCount: 0,
-  mode: 'video',
+  mode: (localStorage.getItem('omegle-mode') as 'text' | 'video') || 'video',
+  socketConnected: false,
 
   setSearching: (isSearching) => set({ isSearching }),
   setConnected: (isConnected) => set({ isConnected }),
@@ -72,5 +75,9 @@ export const useAppStore = create<AppState>((set) => ({
   }),
   resetChat: () => set({ messages: [] }),
   setOnlineCount: (onlineCount) => set({ onlineCount }),
-  setMode: (mode) => set({ mode }),
+  setMode: (mode) => {
+    localStorage.setItem('omegle-mode', mode);
+    set({ mode });
+  },
+  setSocketConnected: (socketConnected) => set({ socketConnected }),
 }));
