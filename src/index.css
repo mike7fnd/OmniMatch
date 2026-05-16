@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-zinc-950: #0a0a0a;
+}
+
+@layer base {
+  body {
+    @apply bg-zinc-950 text-zinc-100 font-sans selection:bg-zinc-800 overflow-hidden antialiased;
+  }
+}
+
+.glass {
+  @apply bg-zinc-900/50 backdrop-blur-xl border border-white/5;
+}
+
+.video-container {
+  @apply bg-zinc-900 rounded-2xl overflow-hidden border border-white/5 transition-all duration-300;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-zinc-800 rounded-full;
+}
