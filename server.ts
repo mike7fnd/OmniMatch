@@ -19,8 +19,13 @@ async function startServer() {
   // Matchmaking queue
   let waitingUsers: string[] = [];
 
+  const broadcastOnlineCount = () => {
+    io.emit("online-count", io.engine.clientsCount);
+  };
+
   io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
+    broadcastOnlineCount();
 
     socket.on("join-queue", () => {
       console.log("User joined queue:", socket.id);
@@ -77,6 +82,7 @@ async function startServer() {
 
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.id);
+      broadcastOnlineCount();
     });
 
     socket.on("skip", ({ roomId }) => {

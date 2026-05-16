@@ -17,6 +17,7 @@ interface AppState {
   roomId: string | null;
   isMuted: boolean;
   isCameraOff: boolean;
+  onlineCount: number;
   
   setSearching: (searching: boolean) => void;
   setConnected: (connected: boolean) => void;
@@ -27,6 +28,7 @@ interface AppState {
   toggleMute: () => void;
   toggleCamera: () => void;
   resetChat: () => void;
+  setOnlineCount: (count: number) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -39,6 +41,7 @@ export const useAppStore = create<AppState>((set) => ({
   roomId: null,
   isMuted: false,
   isCameraOff: false,
+  onlineCount: 0,
 
   setSearching: (isSearching) => set({ isSearching }),
   setConnected: (isConnected) => set({ isConnected }),
@@ -61,4 +64,5 @@ export const useAppStore = create<AppState>((set) => ({
     return { isCameraOff: !state.isCameraOff };
   }),
   resetChat: () => set({ messages: [] }),
+  setOnlineCount: (onlineCount) => set({ onlineCount }),
 }));

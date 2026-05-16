@@ -20,6 +20,7 @@ export const useWebRTC = () => {
     setRemoteStream,
     setMatch,
     addMessage,
+    setOnlineCount,
     localStream,
     roomId,
     resetChat,
@@ -80,7 +81,17 @@ export const useWebRTC = () => {
     let stream = localStreamRef.current;
     if (!stream) {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            width: { ideal: 1280 }, 
+            height: { ideal: 720 },
+            facingMode: "user"
+          }, 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true
+          }
+        });
         setLocalStream(stream);
         localStreamRef.current = stream; // Update ref immediately
       } catch (err) {
@@ -161,6 +172,10 @@ export const useWebRTC = () => {
     socket.on('partner-skipped', () => {
       console.log('Partner skipped');
       skip();
+    });
+
+    socket.on('online-count', (count: number) => {
+      setOnlineCount(count);
     });
 
     return () => {
