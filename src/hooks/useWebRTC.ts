@@ -25,6 +25,17 @@ export const useWebRTC = () => {
     resetChat,
   } = useAppStore();
 
+  const roomIdRef = useRef<string | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  
+  useEffect(() => {
+    roomIdRef.current = roomId;
+  }, [roomId]);
+
+  useEffect(() => {
+    localStreamRef.current = localStream;
+  }, [localStream]);
+
   const cleanup = useCallback(() => {
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
@@ -48,26 +59,30 @@ export const useWebRTC = () => {
     };
 
     pc.ontrack = (event) => {
+      console.log('Received remote track');
       setRemoteStream(event.streams[0]);
       setConnected(true);
       setSearching(false);
     };
 
-    if (localStream) {
-      localStream.getTracks().forEach((track) => {
-        pc.addTrack(track, localStream);
+    const tracks = localStreamRef.current?.getTracks();
+    if (tracks && tracks.length > 0) {
+      tracks.forEach((track) => {
+        pc.addTrack(track, localStreamRef.current!);
       });
     }
 
     peerConnectionRef.current = pc;
     return pc;
-  }, [localStream, setRemoteStream, setConnected, setSearching]);
+  }, [setRemoteStream, setConnected, setSearching]);
 
   const startSearching = useCallback(async () => {
-    if (!localStream) {
+    let stream = localStreamRef.current;
+    if (!stream) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         setLocalStream(stream);
+        localStreamRef.current = stream; // Update ref immediately
       } catch (err) {
         console.error('Error accessing media devices:', err);
         alert('Please allow camera and microphone access to use this app.');
@@ -78,71 +93,83 @@ export const useWebRTC = () => {
     cleanup();
     setSearching(true);
     socketRef.current?.emit('join-queue');
-  }, [localStream, setLocalStream, setSearching, cleanup]);
+  }, [setLocalStream, setSearching, cleanup]);
 
   const skip = useCallback(() => {
-    if (roomId) {
-      socketRef.current?.emit('skip', { roomId });
+    if (roomIdRef.current) {
+      socketRef.current?.emit('skip', { roomId: roomIdRef.current });
     }
     cleanup();
     resetChat();
     startSearching();
-  }, [roomId, cleanup, resetChat, startSearching]);
+  }, [cleanup, resetChat, startSearching]);
 
   const sendMessage = useCallback((text: string) => {
-    if (roomId && socketRef.current) {
-      socketRef.current.emit('send-message', { roomId, message: text });
+    if (roomIdRef.current && socketRef.current) {
+      socketRef.current.emit('send-message', { roomId: roomIdRef.current, message: text });
       addMessage({ text, sender: 'me' });
     }
-  }, [roomId, addMessage]);
+  }, [addMessage]);
 
   useEffect(() => {
-    socketRef.current = io();
+    const socket = io();
+    socketRef.current = socket;
 
-    socketRef.current.on('match-found', async ({ roomId: newRoomId, initiator }) => {
+    socket.on('match-found', async ({ roomId: newRoomId, initiator }) => {
+      console.log('Match found! Room:', newRoomId, 'Initiator:', initiator);
       setMatch(newRoomId, null);
       const pc = createPeerConnection(newRoomId);
 
       if (initiator) {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        socketRef.current?.emit('signal', { roomId: newRoomId, signal: offer });
+        socket.emit('signal', { roomId: newRoomId, signal: offer });
       }
     });
 
-    socketRef.current.on('signal', async ({ signal }) => {
+    socket.on('signal', async ({ signal }) => {
       const pc = peerConnectionRef.current;
       if (!pc) return;
 
-      if (signal.type === 'offer') {
-        await pc.setRemoteDescription(new RTCSessionDescription(signal));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        socketRef.current?.emit('signal', { roomId, signal: answer });
-      } else if (signal.type === 'answer') {
-        await pc.setRemoteDescription(new RTCSessionDescription(signal));
-      } else if (signal.type === 'candidate') {
-        await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+      try {
+        if (signal.type === 'offer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(signal));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          if (roomIdRef.current) {
+            socket.emit('signal', { roomId: roomIdRef.current, signal: answer });
+          }
+        } else if (signal.type === 'answer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(signal));
+        } else if (signal.type === 'candidate') {
+          await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        }
+      } catch (err) {
+        console.error('Signaling error:', err);
       }
     });
 
-    socketRef.current.on('message', (text: string) => {
+    socket.on('message', (text: string) => {
       addMessage({ text, sender: 'partner' });
     });
 
-    socketRef.current.on('partner-disconnected', () => {
+    socket.on('partner-disconnected', () => {
+      console.log('Partner disconnected');
       skip();
     });
 
-    socketRef.current.on('partner-skipped', () => {
+    socket.on('partner-skipped', () => {
+      console.log('Partner skipped');
       skip();
     });
 
     return () => {
-      socketRef.current?.disconnect();
+      socket.disconnect();
       cleanup();
     };
-  }, [roomId, createPeerConnection, addMessage, skip, setMatch, cleanup]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once! Add callbacks to refs if needed, but here they are stable or handle state internally.
+
 
   return { startSearching, skip, sendMessage };
 };

@@ -62,19 +62,25 @@ async function startServer() {
       socket.to(roomId).emit("message", message);
     });
 
-    socket.on("disconnect", () => {
-      console.log("User disconnected:", socket.id);
+    socket.on("disconnecting", () => {
+      console.log("User disconnecting:", socket.id);
       waitingUsers = waitingUsers.filter(id => id !== socket.id);
-      // Notify rooms
+      
       const rooms = Array.from(socket.rooms);
       rooms.forEach(room => {
         if (room.startsWith("room-")) {
+          console.log(`Notifying partner in room ${room} that ${socket.id} is leaving`);
           socket.to(room).emit("partner-disconnected");
         }
       });
     });
 
+    socket.on("disconnect", () => {
+      console.log("User disconnected:", socket.id);
+    });
+
     socket.on("skip", ({ roomId }) => {
+      console.log(`User ${socket.id} skipped room ${roomId}`);
       socket.to(roomId).emit("partner-skipped");
       socket.leave(roomId);
     });
